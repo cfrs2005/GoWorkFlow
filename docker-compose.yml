@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: workflow-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: workflow123
+      MYSQL_DATABASE: workflow
+      MYSQL_USER: workflow_user
+      MYSQL_PASSWORD: workflow_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./migrations:/docker-entrypoint-initdb.d
+    networks:
+      - workflow-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  workflow-api:
+    build: .
+    container_name: workflow-api
+    environment:
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8080
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: workflow_user
+      DB_PASSWORD: workflow_pass
+      DB_NAME: workflow
+      DB_CHARSET: utf8mb4
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - workflow-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+
+networks:
+  workflow-network:
+    driver: bridge
