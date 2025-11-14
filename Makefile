@@ -12,9 +12,13 @@ help:
 	@echo "  make run           - 运行应用"
 	@echo "  make test          - 运行测试"
 	@echo "  make clean         - 清理构建文件"
-	@echo "  make migrate-up    - 运行数据库迁移"
+	@echo "  make migrate-up    - 运行所有数据库迁移"
+	@echo "  make migrate-file FILE=<file> - 运行指定的迁移文件"
+	@echo "  make migrate-verify - 验证 YouTube 工作流配置"
+	@echo "  make migrate-fix-youtube - 修复 YouTube 工作流问题"
 	@echo "  make migrate-down  - 回滚数据库迁移"
 	@echo "  make deps          - 安装依赖"
+	@echo "  make dev-setup     - 设置开发环境"
 	@echo "  make help          - 显示帮助信息"
 
 # 安装依赖
@@ -48,9 +52,26 @@ clean:
 # 运行数据库迁移
 migrate-up:
 	@echo "Running database migrations..."
-	mysql -hlocalhost --protocol=TCP -u$(DB_USER) -p$(DB_PASSWORD) < migrations/001_init_schema.sql
-	mysql -hlocalhost --protocol=TCP -u$(DB_USER) -p$(DB_PASSWORD) < migrations/002_sample_data.sql
-	@echo "Migrations complete"
+	@bash scripts/migrate.sh up
+
+# 运行单个迁移文件
+migrate-file:
+	@if [ -z "$(FILE)" ]; then \
+		echo "Error: Please specify FILE=migrations/xxx.sql"; \
+		exit 1; \
+	fi
+	@echo "Running migration: $(FILE)..."
+	@bash scripts/migrate.sh file $(FILE)
+
+# 验证 YouTube 工作流
+migrate-verify:
+	@echo "Verifying YouTube workflow..."
+	@bash scripts/migrate.sh verify
+
+# 修复 YouTube 工作流问题
+migrate-fix-youtube:
+	@echo "Fixing YouTube workflow issues..."
+	@bash scripts/fix-youtube-workflow.sh
 
 # 数据库迁移变量（可通过环境变量覆盖）
 DB_USER ?= root
