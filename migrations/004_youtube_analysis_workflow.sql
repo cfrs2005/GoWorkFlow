@@ -1,106 +1,98 @@
--- YouTube 视频分析工作流
-USE workflow;
+-- 004_youtube_analysis_workflow.sql
+-- 创建 YouTube 视频分析工作流模板
 
--- 插入 YouTube 分析相关任务
-INSERT INTO tasks (name, description, task_type, config, is_active) VALUES
-('视频信息提取', '从 YouTube 提取视频元数据（标题、描述、时长等）', 'automated', '{"api": "youtube_data_api", "fields": ["title", "description", "duration", "view_count"]}', 1),
-('字幕下载', '下载视频字幕或生成自动字幕', 'automated', '{"languages": ["zh", "en"], "auto_generated": true}', 1),
-('内容分析', '分析视频内容主题和关键词', 'automated', '{"nlp_model": "topic_extraction", "keyword_count": 10}', 1),
-('情感分析', '分析视频评论情感倾向', 'automated', '{"sentiment_model": "bert", "sample_size": 100}', 1),
-('数据审核', '人工审核分析结果', 'manual', '{"checklist": ["数据完整性", "分析准确性"]}', 1),
-('生成报告', '生成分析报告并保存', 'automated', '{"format": "pdf", "include_charts": true}', 1);
-
--- 插入 YouTube 分析流程
-INSERT INTO flows (name, description, version, is_active, created_by) VALUES
-('YouTube视频分析流程', 'YouTube视频内容分析和报告生成流程', '1.0.0', 1, 1);
-
--- 获取刚插入的流程ID和任务ID（假设这是第三个流程，任务ID从11开始）
--- 为"YouTube视频分析流程"添加任务
--- 注意：这里使用的ID需要根据实际数据库中的ID进行调整
-INSERT INTO flow_tasks (flow_id, task_id, sequence, is_optional, allow_rollback)
-SELECT
-    (SELECT id FROM flows WHERE name = 'YouTube视频分析流程' LIMIT 1) as flow_id,
-    (SELECT id FROM tasks WHERE name = '视频信息提取' LIMIT 1) as task_id,
-    1 as sequence,
-    0 as is_optional,
-    1 as allow_rollback
+-- 1. 创建三个任务定义（防止重复插入）
+INSERT INTO tasks (name, description, task_type, config, is_active, created_at, updated_at)
+SELECT * FROM (
+    SELECT
+        'YouTube ASR 获取' as name,
+        '从 YouTube 视频获取 ASR（自动语音识别）字幕内容' as description,
+        'automated' as task_type,
+        '{"executor": "youtube_asr", "language": "en"}' as config,
+        1 as is_active,
+        NOW() as created_at,
+        NOW() as updated_at
+    UNION ALL
+    SELECT
+        'BigModel 内容分析',
+        '使用智谱 AI BigModel GLM-4-Air 生成阅读摘要、思维导图、重点分析和个人认知',
+        'automated',
+        '{"executor": "bigmodel_analysis", "model": "glm-4-air"}',
+        1,
+        NOW(),
+        NOW()
+    UNION ALL
+    SELECT
+        'HTML 报告生成',
+        '生成精美的 HTML 分析报告',
+        'automated',
+        '{"executor": "html_report"}',
+        1,
+        NOW(),
+        NOW()
+) AS new_tasks
 WHERE NOT EXISTS (
-    SELECT 1 FROM flow_tasks ft
-    JOIN flows f ON ft.flow_id = f.id
-    WHERE f.name = 'YouTube视频分析流程' AND ft.sequence = 1
+    SELECT 1 FROM tasks WHERE name IN ('YouTube ASR 获取', 'BigModel 内容分析', 'HTML 报告生成')
 );
 
-INSERT INTO flow_tasks (flow_id, task_id, sequence, is_optional, allow_rollback)
+-- 2. 创建流程定义（防止重复插入）
+INSERT INTO flows (name, description, version, is_active, created_by, created_at, updated_at)
 SELECT
-    (SELECT id FROM flows WHERE name = 'YouTube视频分析流程' LIMIT 1) as flow_id,
-    (SELECT id FROM tasks WHERE name = '字幕下载' LIMIT 1) as task_id,
-    2 as sequence,
-    1 as is_optional,
-    1 as allow_rollback
+    'YouTube 视频智能分析',
+    '自动分析 YouTube 视频内容：获取字幕、AI 分析、生成报告。支持阅读摘要、思维导图、重点分析和个人认知四个维度的深度分析。',
+    '1.0.0',
+    1,
+    1,
+    NOW(),
+    NOW()
 WHERE NOT EXISTS (
-    SELECT 1 FROM flow_tasks ft
-    JOIN flows f ON ft.flow_id = f.id
-    WHERE f.name = 'YouTube视频分析流程' AND ft.sequence = 2
+    SELECT 1 FROM flows WHERE name = 'YouTube 视频智能分析'
 );
 
-INSERT INTO flow_tasks (flow_id, task_id, sequence, is_optional, allow_rollback)
-SELECT
-    (SELECT id FROM flows WHERE name = 'YouTube视频分析流程' LIMIT 1) as flow_id,
-    (SELECT id FROM tasks WHERE name = '内容分析' LIMIT 1) as task_id,
-    3 as sequence,
-    0 as is_optional,
-    1 as allow_rollback
+-- 3. 获取刚创建的 IDs
+SET @flow_id = (SELECT id FROM flows WHERE name = 'YouTube 视频智能分析' ORDER BY id DESC LIMIT 1);
+SET @task_asr_id = (SELECT id FROM tasks WHERE name = 'YouTube ASR 获取' ORDER BY id DESC LIMIT 1);
+SET @task_analysis_id = (SELECT id FROM tasks WHERE name = 'BigModel 内容分析' ORDER BY id DESC LIMIT 1);
+SET @task_report_id = (SELECT id FROM tasks WHERE name = 'HTML 报告生成' ORDER BY id DESC LIMIT 1);
+
+-- 4. 创建流程任务关联（防止重复插入）
+-- 注意：数据库使用 is_optional 而不是 is_required，0 表示必需，1 表示可选
+INSERT INTO flow_tasks (flow_id, task_id, sequence, is_optional, allow_rollback, created_at, updated_at)
+SELECT @flow_id, @task_asr_id, 1, 0, 1, NOW(), NOW()
 WHERE NOT EXISTS (
-    SELECT 1 FROM flow_tasks ft
-    JOIN flows f ON ft.flow_id = f.id
-    WHERE f.name = 'YouTube视频分析流程' AND ft.sequence = 3
+    SELECT 1 FROM flow_tasks WHERE flow_id = @flow_id AND sequence = 1
+)
+UNION ALL
+SELECT @flow_id, @task_analysis_id, 2, 0, 1, NOW(), NOW()
+WHERE NOT EXISTS (
+    SELECT 1 FROM flow_tasks WHERE flow_id = @flow_id AND sequence = 2
+)
+UNION ALL
+SELECT @flow_id, @task_report_id, 3, 0, 0, NOW(), NOW()
+WHERE NOT EXISTS (
+    SELECT 1 FROM flow_tasks WHERE flow_id = @flow_id AND sequence = 3
 );
 
-INSERT INTO flow_tasks (flow_id, task_id, sequence, is_optional, allow_rollback)
-SELECT
-    (SELECT id FROM flows WHERE name = 'YouTube视频分析流程' LIMIT 1) as flow_id,
-    (SELECT id FROM tasks WHERE name = '情感分析' LIMIT 1) as task_id,
-    4 as sequence,
-    1 as is_optional,
-    1 as allow_rollback
-WHERE NOT EXISTS (
-    SELECT 1 FROM flow_tasks ft
-    JOIN flows f ON ft.flow_id = f.id
-    WHERE f.name = 'YouTube视频分析流程' AND ft.sequence = 4
-);
-
-INSERT INTO flow_tasks (flow_id, task_id, sequence, is_optional, allow_rollback)
-SELECT
-    (SELECT id FROM flows WHERE name = 'YouTube视频分析流程' LIMIT 1) as flow_id,
-    (SELECT id FROM tasks WHERE name = '数据审核' LIMIT 1) as task_id,
-    5 as sequence,
-    0 as is_optional,
-    1 as allow_rollback
-WHERE NOT EXISTS (
-    SELECT 1 FROM flow_tasks ft
-    JOIN flows f ON ft.flow_id = f.id
-    WHERE f.name = 'YouTube视频分析流程' AND ft.sequence = 5
-);
-
-INSERT INTO flow_tasks (flow_id, task_id, sequence, is_optional, allow_rollback)
-SELECT
-    (SELECT id FROM flows WHERE name = 'YouTube视频分析流程' LIMIT 1) as flow_id,
-    (SELECT id FROM tasks WHERE name = '生成报告' LIMIT 1) as task_id,
-    6 as sequence,
-    0 as is_optional,
-    0 as allow_rollback
-WHERE NOT EXISTS (
-    SELECT 1 FROM flow_tasks ft
-    JOIN flows f ON ft.flow_id = f.id
-    WHERE f.name = 'YouTube视频分析流程' AND ft.sequence = 6
-);
-
--- 验证插入结果
+-- 5. 验证插入结果
 SELECT
     f.id as flow_id,
     f.name as flow_name,
     COUNT(ft.id) as task_count
 FROM flows f
 LEFT JOIN flow_tasks ft ON f.id = ft.flow_id
-WHERE f.name = 'YouTube视频分析流程'
+WHERE f.name = 'YouTube 视频智能分析'
 GROUP BY f.id, f.name;
+
+-- 显示任务详情
+SELECT
+    ft.sequence AS '序号',
+    t.name AS '任务名称',
+    t.task_type AS '类型',
+    IF(ft.is_optional = 1, '是', '否') AS '可选',
+    IF(ft.allow_rollback = 1, '是', '否') AS '可回滚',
+    t.config AS '配置'
+FROM flow_tasks ft
+JOIN tasks t ON ft.task_id = t.id
+JOIN flows f ON ft.flow_id = f.id
+WHERE f.name = 'YouTube 视频智能分析'
+ORDER BY ft.sequence;

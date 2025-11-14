@@ -1,18 +1,29 @@
 # YouTube 工作流问题修复指南
 
+> **更新说明**：此分支已与 main 分支合并，包含完整的 YouTube 视频智能分析工作流实现（包括执行器代码、Web 界面等）。
+
 ## 问题描述
 
-在添加 YouTube 视频分析工作流时，可能会遇到以下两个问题：
+在添加 YouTube 视频分析工作流时，可能会遇到以下问题：
 
 1. **迁移文件执行失败**：`migrations/004_youtube_analysis_workflow.sql` 执行失败（可能已执行过）
 2. **创建作业失败**：添加 YouTube 视频时报错 `flow has no tasks`
+3. **字段名错误**：原 main 分支迁移文件使用 `is_required` 字段，但数据库 schema 使用 `is_optional`
 
 ## 问题原因
 
 `flow has no tasks` 错误发生在 `internal/engine/workflow_engine.go:80`，原因是：
 - YouTube 工作流 (flows 表) 已创建
-- 但流程任务关联 (flow_tasks 表) 没有正确插入
+- 但流程任务关联 (flow_tasks 表) 没有正确插入（可能因为字段名错误或重复执行失败）
 - 导致创建作业时无法找到关联的任务
+
+## 已修复的问题
+
+✅ 修复了 `is_required` vs `is_optional` 字段名错误
+✅ 添加了防重复插入逻辑（使用 WHERE NOT EXISTS）
+✅ 添加了 allow_rollback 字段配置
+✅ 添加了验证查询显示任务详情
+✅ 与 main 分支合并，包含完整的执行器实现
 
 ## 快速修复
 
@@ -141,7 +152,7 @@ make run
 ```bash
 # 获取 YouTube 工作流 ID
 FLOW_ID=$(mysql -h localhost -u root -p -D workflow -s -N -e \
-  "SELECT id FROM flows WHERE name = 'YouTube视频分析流程' LIMIT 1;")
+  "SELECT id FROM flows WHERE name = 'YouTube 视频智能分析' LIMIT 1;")
 
 # 创建作业
 curl -X POST http://localhost:8080/api/v1/jobs \
@@ -172,16 +183,21 @@ curl -X POST http://localhost:8080/api/v1/jobs \
 
 ## YouTube 工作流任务说明
 
-修复后的 YouTube 工作流包含以下 6 个任务：
+修复后的 YouTube 工作流包含以下 3 个任务：
 
-| 序号 | 任务名称 | 类型 | 是否可选 | 说明 |
-|------|----------|------|----------|------|
-| 1 | 视频信息提取 | automated | 否 | 从 YouTube 提取视频元数据 |
-| 2 | 字幕下载 | automated | 是 | 下载视频字幕（可选） |
-| 3 | 内容分析 | automated | 否 | 分析视频内容主题和关键词 |
-| 4 | 情感分析 | automated | 是 | 分析视频评论情感（可选） |
-| 5 | 数据审核 | manual | 否 | 人工审核分析结果 |
-| 6 | 生成报告 | automated | 否 | 生成分析报告并保存 |
+| 序号 | 任务名称 | 类型 | 是否可选 | 是否可回滚 | 说明 |
+|------|----------|------|----------|-----------|------|
+| 1 | YouTube ASR 获取 | automated | 否 | 是 | 从 YouTube 视频获取 ASR（自动语音识别）字幕内容 |
+| 2 | BigModel 内容分析 | automated | 否 | 是 | 使用智谱 AI BigModel GLM-4-Air 生成阅读摘要、思维导图、重点分析和个人认知 |
+| 3 | HTML 报告生成 | automated | 否 | 否 | 生成精美的 HTML 分析报告 |
+
+### 任务执行器
+
+每个任务都有对应的执行器实现：
+
+- **YouTube ASR 执行器** (`internal/executor/youtube_asr_executor.go`)：获取 YouTube 视频字幕
+- **BigModel 执行器** (`internal/executor/bigmodel_executor.go`)：使用智谱 AI 进行内容分析
+- **HTML 报告执行器** (`internal/executor/html_report_executor.go`)：生成 HTML 报告
 
 ## 常见问题
 

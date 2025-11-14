@@ -85,7 +85,7 @@ verify_youtube_workflow() {
         SELECT f.id, f.name, COUNT(ft.id) as task_count
         FROM flows f
         LEFT JOIN flow_tasks ft ON f.id = ft.flow_id
-        WHERE f.name = 'YouTube视频分析流程'
+        WHERE f.name = 'YouTube 视频智能分析'
         GROUP BY f.id, f.name;
     " 2>&1)
 

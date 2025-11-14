@@ -9,25 +9,19 @@ import (
 
 // Router 路由器
 type Router struct {
-	taskHandler         *TaskHandler
-	flowHandler         *FlowHandler
-	jobHandler          *JobHandler
-	jobContextHandler   *JobContextHandler
-	executorHandler     *ExecutorHandler
+	taskHandler       *TaskHandler
+	flowHandler       *FlowHandler
+	jobHandler        *JobHandler
+	jobContextHandler *JobContextHandler
 }
 
 // NewRouter 创建路由器
-func NewRouter(
-	service service.WorkflowService,
-	jobContextRepo repository.JobContextRepository,
-	taskExecutorService *service.TaskExecutorService,
-) *Router {
+func NewRouter(service service.WorkflowService, jobContextRepo repository.JobContextRepository) *Router {
 	return &Router{
 		taskHandler:       NewTaskHandler(service),
 		flowHandler:       NewFlowHandler(service),
 		jobHandler:        NewJobHandler(service),
 		jobContextHandler: NewJobContextHandler(jobContextRepo),
-		executorHandler:   NewExecutorHandler(taskExecutorService),
 	}
 }
 
@@ -99,15 +93,6 @@ func (router *Router) Setup() *http.ServeMux {
 		router.jobHandler.StartJob(w, r)
 	})
 
-	// 自动执行路由（新增）
-	mux.HandleFunc("/api/jobs/auto-execute", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		router.executorHandler.AutoExecuteJob(w, r)
-	})
-
 	mux.HandleFunc("/api/jobs/next-task", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -174,15 +159,6 @@ func (router *Router) Setup() *http.ServeMux {
 		router.jobHandler.RollbackTask(w, r)
 	})
 
-	// 任务执行路由（新增）
-	mux.HandleFunc("/api/tasks/execute", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		router.executorHandler.ExecuteTask(w, r)
-	})
-
 	// 健康检查
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -192,10 +168,6 @@ func (router *Router) Setup() *http.ServeMux {
 	// 静态文件服务
 	fs := http.FileServer(http.Dir("./web"))
 	mux.Handle("/", http.StripPrefix("/", fs))
-
-	// 报告文件服务（新增）
-	reportsFS := http.FileServer(http.Dir("./reports"))
-	mux.Handle("/reports/", http.StripPrefix("/reports/", reportsFS))
 
 	return mux
 }

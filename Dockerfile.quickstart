@@ -1,0 +1,64 @@
+# YouTube 视频分析 - 快速启动 Dockerfile
+# 多阶段构建，优化镜像大小
+
+# 构建阶段
+FROM golang:1.21-alpine AS builder
+
+# 安装构建依赖
+RUN apk add --no-cache git gcc musl-dev
+
+# 设置工作目录
+WORKDIR /build
+
+# 复制 go.mod 和 go.sum
+COPY go.mod go.sum ./
+
+# 下载依赖
+RUN go mod download
+
+# 复制源代码
+COPY . .
+
+# 构建应用
+RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o workflow-api cmd/workflow-api/main.go
+
+# 运行阶段
+FROM alpine:latest
+
+# 安装运行时依赖
+RUN apk add --no-cache \
+    ca-certificates \
+    tzdata \
+    python3 \
+    py3-pip \
+    && pip3 install --no-cache-dir yt-dlp youtube-transcript-api
+
+# 创建非 root 用户
+RUN addgroup -g 1000 workflow && \
+    adduser -D -u 1000 -G workflow workflow
+
+# 设置工作目录
+WORKDIR /app
+
+# 从构建阶段复制二进制文件
+COPY --from=builder /build/workflow-api .
+
+# 复制必要文件
+COPY --chown=workflow:workflow web ./web
+COPY --chown=workflow:workflow migrations ./migrations
+
+# 创建必要目录
+RUN mkdir -p reports && chown workflow:workflow reports
+
+# 切换到非 root 用户
+USER workflow
+
+# 暴露端口
+EXPOSE 8080
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget --quiet --tries=1 --spider http://localhost:8080/health || exit 1
+
+# 启动应用
+CMD ["./workflow-api"]

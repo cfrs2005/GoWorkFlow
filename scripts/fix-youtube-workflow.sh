@@ -59,7 +59,7 @@ echo -e "${YELLOW}步骤 2/4: 检查 YouTube 工作流状态...${NC}"
 
 # 检查流程是否存在
 FLOW_EXISTS=$($MYSQL_CMD "$DB_NAME" -s -N -e "
-    SELECT COUNT(*) FROM flows WHERE name = 'YouTube视频分析流程';
+    SELECT COUNT(*) FROM flows WHERE name = 'YouTube 视频智能分析';
 ")
 
 if [ "$FLOW_EXISTS" -eq 0 ]; then
@@ -67,7 +67,7 @@ if [ "$FLOW_EXISTS" -eq 0 ]; then
     FLOW_ID=""
 else
     FLOW_ID=$($MYSQL_CMD "$DB_NAME" -s -N -e "
-        SELECT id FROM flows WHERE name = 'YouTube视频分析流程' LIMIT 1;
+        SELECT id FROM flows WHERE name = 'YouTube 视频智能分析' LIMIT 1;
     ")
     echo -e "${GREEN}✓ YouTube 工作流已存在 (ID: $FLOW_ID)${NC}"
 
@@ -115,7 +115,7 @@ echo -e "${YELLOW}步骤 4/4: 验证修复结果...${NC}"
 
 # 重新获取流程ID
 FLOW_ID=$($MYSQL_CMD "$DB_NAME" -s -N -e "
-    SELECT id FROM flows WHERE name = 'YouTube视频分析流程' LIMIT 1;
+    SELECT id FROM flows WHERE name = 'YouTube 视频智能分析' LIMIT 1;
 ")
 
 if [ -z "$FLOW_ID" ]; then
@@ -133,7 +133,7 @@ echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}验证结果${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo "Flow ID: $FLOW_ID"
-echo "Flow Name: YouTube视频分析流程"
+echo "Flow Name: YouTube 视频智能分析"
 echo "Task Count: $TASK_COUNT"
 echo ""
 
@@ -148,7 +148,7 @@ if [ "$TASK_COUNT" -eq 0 ]; then
     echo "  1. 检查 tasks 表: SELECT * FROM tasks WHERE name LIKE '%视频%';"
     echo "  2. 手动检查 migrations/004_youtube_analysis_workflow.sql"
     echo "  3. 如需重新执行，可以先删除现有数据："
-    echo "     DELETE FROM flows WHERE name = 'YouTube视频分析流程';"
+    echo "     DELETE FROM flows WHERE name = 'YouTube 视频智能分析';"
     exit 1
 else
     echo -e "${GREEN}========================================${NC}"
