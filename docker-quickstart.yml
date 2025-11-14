@@ -1,0 +1,67 @@
+# YouTube 视频分析 - Docker Compose 快速启动
+# 使用方法: docker-compose -f docker-quickstart.yml up -d
+
+version: '3.8'
+
+services:
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: goworkflow-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: workflow123
+      MYSQL_DATABASE: workflow
+      MYSQL_USER: workflow
+      MYSQL_PASSWORD: workflow123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pworkflow123"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - goworkflow-network
+
+  # GoWorkFlow 应用
+  goworkflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.quickstart
+    container_name: goworkflow-app
+    environment:
+      # 数据库配置
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: workflow
+      DB_PASSWORD: workflow123
+      DB_NAME: workflow
+
+      # 服务配置
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8080
+
+      # BigModel API Key (可选)
+      # BIGMODEL_API_KEY: your_api_key_here
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./reports:/app/reports
+      - ./web:/app/web:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - goworkflow-network
+
+volumes:
+  mysql-data:
+    driver: local
+
+networks:
+  goworkflow-network:
+    driver: bridge
