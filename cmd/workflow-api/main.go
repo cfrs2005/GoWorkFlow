@@ -39,6 +39,7 @@ func main() {
 	flowTaskRepo := repository.NewFlowTaskRepository(db.DB)
 	jobRepo := repository.NewJobRepository(db.DB)
 	jobTaskRepo := repository.NewJobTaskRepository(db.DB)
+	jobContextRepo := repository.NewJobContextRepository(db.DB)
 
 	// 初始化工作流引擎
 	workflowEngine := engine.NewWorkflowEngine(
@@ -61,7 +62,7 @@ func main() {
 	)
 
 	// 设置路由
-	router := handler.NewRouter(workflowService)
+	router := handler.NewRouter(workflowService, jobContextRepo)
 	mux := router.Setup()
 
 	// 启动服务器

@@ -3,22 +3,25 @@ package handler
 import (
 	"net/http"
 
+	"github.com/cfrs2005/GoWorkFlow/internal/repository"
 	"github.com/cfrs2005/GoWorkFlow/internal/service"
 )
 
 // Router 路由器
 type Router struct {
-	taskHandler *TaskHandler
-	flowHandler *FlowHandler
-	jobHandler  *JobHandler
+	taskHandler       *TaskHandler
+	flowHandler       *FlowHandler
+	jobHandler        *JobHandler
+	jobContextHandler *JobContextHandler
 }
 
 // NewRouter 创建路由器
-func NewRouter(service service.WorkflowService) *Router {
+func NewRouter(service service.WorkflowService, jobContextRepo repository.JobContextRepository) *Router {
 	return &Router{
-		taskHandler: NewTaskHandler(service),
-		flowHandler: NewFlowHandler(service),
-		jobHandler:  NewJobHandler(service),
+		taskHandler:       NewTaskHandler(service),
+		flowHandler:       NewFlowHandler(service),
+		jobHandler:        NewJobHandler(service),
+		jobContextHandler: NewJobContextHandler(jobContextRepo),
 	}
 }
 
@@ -98,6 +101,23 @@ func (router *Router) Setup() *http.ServeMux {
 		router.jobHandler.GetNextTask(w, r)
 	})
 
+	// Job Context 路由
+	mux.HandleFunc("/api/jobs/", func(w http.ResponseWriter, r *http.Request) {
+		// 匹配 /api/jobs/{id}/context
+		if len(r.URL.Path) > len("/api/jobs/") && r.URL.Path[len(r.URL.Path)-8:] == "/context" {
+			switch r.Method {
+			case http.MethodGet:
+				router.jobContextHandler.GetJobContext(w, r)
+			case http.MethodPut:
+				router.jobContextHandler.UpdateJobContext(w, r)
+			default:
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			}
+		} else {
+			http.NotFound(w, r)
+		}
+	})
+
 	// JobTask 路由
 	mux.HandleFunc("/api/tasks/start", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -144,6 +164,10 @@ func (router *Router) Setup() *http.ServeMux {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+
+	// 静态文件服务
+	fs := http.FileServer(http.Dir("./web"))
+	mux.Handle("/", http.StripPrefix("/", fs))
 
 	return mux
 }

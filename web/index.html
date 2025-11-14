@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoWorkFlow - 工作流管理系统</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Alpine.js CDN -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Chart.js for Dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="/css/style.css">
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#7C3AED',
+                        'primary-light': '#A78BFA',
+                        'primary-dark': '#5B21B6',
+                    },
+                    maxWidth: {
+                        'screen-1920': '1920px',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50" x-data="appData()" x-init="init()">
+
+    <!-- Main Container -->
+    <div class="flex h-screen overflow-hidden">
+
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white shadow-lg flex flex-col">
+            <!-- Logo -->
+            <div class="h-16 flex items-center justify-center border-b border-gray-200 bg-primary">
+                <h1 class="text-2xl font-bold text-white">GoWorkFlow</h1>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 overflow-y-auto py-4">
+                <a href="#dashboard"
+                   @click.prevent="currentPage = 'dashboard'"
+                   :class="currentPage === 'dashboard' ? 'bg-primary-light text-white' : 'text-gray-700 hover:bg-gray-100'"
+                   class="flex items-center px-6 py-3 transition-colors">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                    </svg>
+                    仪表盘
+                </a>
+
+                <a href="#flows"
+                   @click.prevent="currentPage = 'flows'"
+                   :class="currentPage === 'flows' ? 'bg-primary-light text-white' : 'text-gray-700 hover:bg-gray-100'"
+                   class="flex items-center px-6 py-3 transition-colors">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    流程管理
+                </a>
+
+                <a href="#tasks"
+                   @click.prevent="currentPage = 'tasks'"
+                   :class="currentPage === 'tasks' ? 'bg-primary-light text-white' : 'text-gray-700 hover:bg-gray-100'"
+                   class="flex items-center px-6 py-3 transition-colors">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                    </svg>
+                    任务库
+                </a>
+
+                <a href="#jobs"
+                   @click.prevent="currentPage = 'jobs'"
+                   :class="currentPage === 'jobs' ? 'bg-primary-light text-white' : 'text-gray-700 hover:bg-gray-100'"
+                   class="flex items-center px-6 py-3 transition-colors">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    作业监控
+                </a>
+            </nav>
+
+            <!-- Footer -->
+            <div class="p-4 border-t border-gray-200 text-sm text-gray-500 text-center">
+                <p>v1.0.0</p>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto">
+            <!-- Top Bar -->
+            <header class="h-16 bg-white shadow-sm flex items-center justify-between px-8">
+                <h2 class="text-2xl font-semibold text-gray-800" x-text="pageTitle"></h2>
+
+                <div class="flex items-center space-x-4">
+                    <button @click="refreshData()"
+                            class="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors">
+                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        刷新
+                    </button>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <div class="p-8 max-w-screen-1920 mx-auto">
+                <!-- Dashboard Page -->
+                <div x-show="currentPage === 'dashboard'" x-transition>
+                    <div id="dashboard-content"></div>
+                </div>
+
+                <!-- Flows Page -->
+                <div x-show="currentPage === 'flows'" x-transition>
+                    <div id="flows-content"></div>
+                </div>
+
+                <!-- Tasks Page -->
+                <div x-show="currentPage === 'tasks'" x-transition>
+                    <div id="tasks-content"></div>
+                </div>
+
+                <!-- Jobs Page -->
+                <div x-show="currentPage === 'jobs'" x-transition>
+                    <div id="jobs-content"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Custom Scripts -->
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/dashboard.js"></script>
+    <script src="/js/flows.js"></script>
+    <script src="/js/tasks.js"></script>
+    <script src="/js/jobs.js"></script>
+</body>
+</html>
