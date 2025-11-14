@@ -2,8 +2,11 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
+
+	"github.com/joho/godotenv"
 )
 
 // Config 应用配置
@@ -30,6 +33,11 @@ type DatabaseConfig struct {
 
 // Load 加载配置
 func Load() *Config {
+	// 加载 .env 文件
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Warning: Could not load .env file: %v", err)
+	}
+
 	return &Config{
 		Server: ServerConfig{
 			Host: getEnv("SERVER_HOST", "0.0.0.0"),
