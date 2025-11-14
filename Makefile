@@ -48,8 +48,8 @@ clean:
 # 运行数据库迁移
 migrate-up:
 	@echo "Running database migrations..."
-	mysql -u$(DB_USER) -p$(DB_PASSWORD) < migrations/001_init_schema.sql
-	mysql -u$(DB_USER) -p$(DB_PASSWORD) < migrations/002_sample_data.sql
+	mysql -hlocalhost --protocol=TCP -u$(DB_USER) -p$(DB_PASSWORD) < migrations/001_init_schema.sql
+	mysql -hlocalhost --protocol=TCP -u$(DB_USER) -p$(DB_PASSWORD) < migrations/002_sample_data.sql
 	@echo "Migrations complete"
 
 # 数据库迁移变量（可通过环境变量覆盖）
